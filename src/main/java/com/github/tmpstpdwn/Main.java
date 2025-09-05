@@ -12,62 +12,68 @@ import com.github.freva.asciitable.HorizontalAlign;
 
 enum ActionType {
     ADD,
-    LIST
+    LIST,
+    UPDATE
 }
 
-record ParsedInput(ActionType action, Object data) {}
+record ParsedInput<T>(ActionType action, T data) {}
 
 public class Main {
     private static SecretKey AESKey;
     private static DataBase dataBase = new DataBase();
     private static Scanner scanner = new Scanner(System.in);
-    private static ParsedInput parsedInput = null;
+    private static ParsedInput<?> parsedInput = null;
+
+    private static String helpText = """
+
+    Usage: hashvault <action> <args>
+
+    <action> | <Args>
+
+    --add    | target username password
+    --list
+
+    Note: This program only allows one action at a time.
+                
+    """;
+
 
     public static void main(String[] args) {
-        parseInput(args);
 
-        dataBase.connect();
+        try {
 
-        initAuthentication();
-        takeAction();
+            parseInput(args);
+            dataBase.connect();
+            initAuthentication();
+            takeAction();
+            dataBase.close();
+
+        } catch (Exception e) {
+            System.out.println("Error: Unrecoverable!");
+        }
 
         scanner.close();
-        dataBase.close();
     }
 
-    private static void initAuthentication() {
-        if (!dataBase.metaTableExists()) {
-            register();
-        } else {
-            authenticate();
-        }
-    }
-
-    private static void parseInput(String[] args) {
+    private static void parseInput(String[] args) throws Exception {
         int i = 0;
         while (i < args.length) {
+
             if (parsedInput != null) {
                 System.out.println("Error: Excess positional arguments found!");
                 System.exit(1);
             }
 
             if (args[i].equals("--add")) {
+                i = parseADD(args, i);
                 i++;
 
-                if (args.length - i < 3) {
-                    System.out.println("Error: Not enough arguments for \'add\' action!");
-                    System.exit(1);
-                }
-
-                DataBase.CredentialData data = new DataBase.CredentialData(
-                    args[i], args[i+1], args[i+2]
-                );
-
-                parsedInput = new ParsedInput(ActionType.ADD, data);
-                i += 3;
-
             } else if (args[i].equals("--list")) {
-                parsedInput = new ParsedInput(ActionType.LIST, null);
+                parsedInput = new ParsedInput<Void>(ActionType.LIST, null);
+                i++;
+                
+            } else if (args[i].equals("--update")) {
+                i = parseUPDATE(args, i);
                 i++;
                 
             } else {
@@ -75,47 +81,55 @@ public class Main {
                 System.exit(1);
             }
         }
+
+        if (parsedInput == null) {
+            System.out.print(helpText);
+            System.exit(1);
+        }
     }
 
-    private static void takeAction() {
-        if (parsedInput == null) {
-            System.out.println("Error: No action provided.");
+    private static int parseADD(String[] args, int i) {
+        if (args.length - i - 1 < 3) {
+            System.out.println("Error: Not enough arguments for 'add' action!");
             System.exit(1);
         }
 
-        switch(parsedInput.action()) {
-            case ADD -> {
-                if (parsedInput.data() instanceof DataBase.CredentialData credentialData) {
-                    String site = credentialData.site();
-                    String username = credentialData.username();
-                    String password = credentialData.password();
-                    dataBase.insertEncryptedCredential(credentialData, AESKey);
-                    System.out.println("Credentials added to the database successfully!");
-                } else {
-                    throw new IllegalArgumentException("Expected CredentialData for ADD action.");
-                }
-            }
+        DataBase.CredentialData data = new DataBase.CredentialData(
+            args[i+1], args[i+2], args[i+3]
+        );
 
-            case LIST -> {
-                List<DataBase.CredentialRecord> credentials = dataBase.getAllDecryptedCredentials(AESKey);
-                if (credentials.isEmpty()) {
-                    System.out.println("No credentials found.");
-                } else {
-                    String table = AsciiTable.getTable(credentials, List.of(
-                        new Column().header("ID").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(cred -> String.valueOf(cred.id())),
-                        new Column().header("Site").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(DataBase.CredentialRecord::site),
-                        new Column().header("Username").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(DataBase.CredentialRecord::username),
-                        new Column().header("Password").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(DataBase.CredentialRecord::password)
-                    ));
-                    System.out.println(table);
-                }
-            }
+        parsedInput = new ParsedInput<DataBase.CredentialData>(ActionType.ADD, data);
+
+        return i + 3;
+    }
+
+    private static int parseUPDATE(String[] args, int i) throws Exception {
+        if (args.length - i - 1 < 4) {
+            System.out.println("Error: Not enough arguments for 'update' action!");
+            System.exit(1);
+        }
+
+        int id = Integer.parseInt(args[i+1]);
+
+        DataBase.CredentialRecord data = new DataBase.CredentialRecord(
+            id, args[i+2], args[i+3], args[i + 4], null
+        );
+
+        parsedInput = new ParsedInput<DataBase.CredentialRecord>(ActionType.UPDATE, data);
+
+        return i + 4;
+    }
+
+     private static void initAuthentication() throws Exception {
+        if (!dataBase.metaTableExists()) {
+            register();
+        } else {
+            authenticate();
         }
     }
-    
-    private static void register() {
-        dataBase.createMetaTable();
-        dataBase.createCredentialTable();
+
+    private static void register() throws Exception {
+        dataBase.createTables();
 
         System.out.print("Enter a new master password: ");
         String master = scanner.nextLine();
@@ -125,12 +139,12 @@ public class Main {
 
         String hashedMaster = Vault.hashPassword(master, loginSalt);
 
-        dataBase.insertMetaData(new DataBase.Metadata(hashedMaster, loginSalt, encryptionSalt));
+        dataBase.insertMetadata(new DataBase.Metadata(hashedMaster, loginSalt, encryptionSalt));
 
         AESKey = Vault.getAESKey(master, encryptionSalt);
     }
 
-    private static void authenticate() {
+    private static void authenticate() throws Exception {
         System.out.print("Enter master password: ");
         String master = scanner.nextLine();
 
@@ -144,4 +158,36 @@ public class Main {
 
         AESKey = Vault.getAESKey(master, metadata.encryptionSalt());
     }
+
+    private static void takeAction() throws Exception {
+        switch(parsedInput.action()) {
+            case ADD -> actionADD();
+            case LIST -> actionLIST();
+            case UPDATE -> actionUPDATE();
+        }
+    }
+
+    private static void actionADD() throws Exception {
+        dataBase.insertCredential((DataBase.CredentialData) parsedInput.data(), AESKey);
+    }
+
+    private static void actionLIST() throws Exception {
+        List<DataBase.CredentialRecord> credentials = dataBase.getAllCredentials(AESKey);
+        if (credentials.isEmpty()) {
+            System.out.println("No credentials found.");
+        } else {
+            String table = AsciiTable.getTable(credentials, List.of(
+                new Column().header("ID").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(cred -> String.valueOf(cred.id())),
+                new Column().header("Site").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(DataBase.CredentialRecord::site),
+                new Column().header("Username").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(DataBase.CredentialRecord::username),
+                new Column().header("Password").headerAlign(HorizontalAlign.CENTER).dataAlign(HorizontalAlign.CENTER).with(DataBase.CredentialRecord::password)
+            ));
+            System.out.println(table);
+        }
+    }
+
+    private static void actionUPDATE() throws Exception {
+        dataBase.updateCredential((DataBase.CredentialRecord) parsedInput.data(), AESKey);
+    }
+    
 }
