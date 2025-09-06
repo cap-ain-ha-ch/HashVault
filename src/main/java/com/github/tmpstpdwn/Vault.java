@@ -31,63 +31,39 @@ class Vault {
         return ivBytes;
     }
 
-    public static SecretKey getAESKey(String password, String salt) {
-        try {
-            int iterations = 65536;
-            int keyLength = 256;
+    public static SecretKey getAESKey(String password, String salt) throws Exception {
+        int iterations = 65536;
+        int keyLength = 256;
 
-            PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt.getBytes(StandardCharsets.UTF_8), iterations, keyLength);
-            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            byte[] keyBytes = factory.generateSecret(spec).getEncoded();
+        PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt.getBytes(StandardCharsets.UTF_8), iterations, keyLength);
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        byte[] keyBytes = factory.generateSecret(spec).getEncoded();
 
-            return new SecretKeySpec(keyBytes, "AES");
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        return null;
+        return new SecretKeySpec(keyBytes, "AES");
     }
 
-    public static String hashPassword(String password, String salt) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(salt.getBytes(StandardCharsets.UTF_8));
-            byte[] hashed = md.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hashed);
-        } catch (NoSuchAlgorithmException e) {
-            System.out.println("ooga");
-            System.exit(1);
-        }
-        return null;
+    public static String hashPassword(String password, String salt) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(salt.getBytes(StandardCharsets.UTF_8));
+        byte[] hashed = md.digest(password.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(hashed);
     }
 
-    public static String encrypt(String plaintext, SecretKey key, byte[] iv) {
-        try {
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-            cipher.init(Cipher.ENCRYPT_MODE, key, spec);
-            byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(encrypted);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        return null;
+    public static String encrypt(String plaintext, SecretKey key, byte[] iv) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, key, spec);
+        byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(encrypted);
     }
 
-    public static String decrypt(String ciphertext, SecretKey key, byte[] iv) {
-        try {
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-            cipher.init(Cipher.DECRYPT_MODE, key, spec);
-            byte[] decoded = Base64.getDecoder().decode(ciphertext);
-            byte[] decrypted = cipher.doFinal(decoded);
-            return new String(decrypted, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        return null;
+    public static String decrypt(String ciphertext, SecretKey key, byte[] iv) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+        cipher.init(Cipher.DECRYPT_MODE, key, spec);
+        byte[] decoded = Base64.getDecoder().decode(ciphertext);
+        byte[] decrypted = cipher.doFinal(decoded);
+        return new String(decrypted, StandardCharsets.UTF_8);
     }
 
 }
