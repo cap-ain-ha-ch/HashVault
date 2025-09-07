@@ -16,15 +16,6 @@ public class ArgumentParser {
     --list     | <NO ARGS>
     --get-pass | target username
     --new-pass | <NO ARGS>
-
-    Note:
-    
-    -> Run `hashvault --new-pass` to setup master password for the first time.
-    -> This program only allows one action at a time.
-    -> For add action, target + username must be unique for each entry.
-    -> For update action '_' can be used to denote fields
-       with no change.
-       example: hashvault --update 1 _ _ new_password
     """;
 
     public ParsedArg getParsedArg() {
