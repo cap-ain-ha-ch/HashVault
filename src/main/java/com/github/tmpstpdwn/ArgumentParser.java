@@ -1,11 +1,9 @@
 package com.github.tmpstpdwn;
 
-import javax.crypto.SecretKey;
-
 public class ArgumentParser {
-    public static record ParsedArg<T>(ActionHandler.ActionType action, T data) {}
+    public static record ParsedArg(ActionHandler.ActionType action, DataBase.CredentialData data) {}
 
-    private ParsedArg<?> parsedArg = null;
+    private ParsedArg parsedArg = null;
 
     private static final String helpText = """
     Usage: hashvault <action> <args>
@@ -13,21 +11,14 @@ public class ArgumentParser {
     <action>   | <Args>
     -------------------
     --add      | target username password
-    --list     | <NO ARGS>
     --update   | id target username password
-    --get-pass | target username
     --delete   | id
+    --list     | <NO ARGS>
+    --get-pass | target username
     --new-pass | <NO ARGS>
-
-    Note:
-    
-    -> This program only allows one action at a time.
-    -> For update action '_' can be used to denote fields
-       with no change.
-       example: hashvault --update 1 _ _ new_password
     """;
 
-    public ParsedArg<?> getParsedArg() {
+    public ParsedArg getParsedArg() {
         return parsedArg;
     }
 
@@ -36,16 +27,20 @@ public class ArgumentParser {
         while (i < args.length) {
 
             if (parsedArg != null) {
-                throw new Exception("Excess positional arguments found");
+                throw new Exception("Only one action is allowed per execution.");
             }
 
             switch (args[i]) {
                 case "--add" -> { i = parseADD(args, i); i++; }
-                case "--list" -> { parseLIST(); i++; }
                 case "--update" -> { i = parseUPDATE(args, i); i++; }
-                case "--get-pass" -> { i = parseGETPASS(args, i); i++; }
                 case "--delete" -> { i = parseDELETE(args, i); i++; }
+                case "--list" -> { parseLIST(); i++; }
+                case "--get-pass" -> { i = parseGETPASS(args, i); i++; }
                 case "--new-pass" -> { parseNEWPASS(); i++; } 
+                case "--help" -> {
+                    System.out.println(helpText);
+                    System.exit(0);
+                }
                 default -> throw new Exception("Unknown action '" + args[i] + "' found");
             }
         }
@@ -61,14 +56,14 @@ public class ArgumentParser {
         }
 
         DataBase.CredentialData data = new DataBase.CredentialData(
-                args[i + 1], args[i + 2], args[i + 3]);
+                0, args[i + 1], args[i + 2], args[i + 3]);
 
-        parsedArg = new ParsedArg<>(ActionHandler.ActionType.ADD, data);
+        parsedArg = new ParsedArg(ActionHandler.ActionType.ADD, data);
         return i + 3;
     }
 
     private void parseLIST() {
-        parsedArg = new ParsedArg<>(ActionHandler.ActionType.LIST, null);
+        parsedArg = new ParsedArg(ActionHandler.ActionType.LIST, null);
     }
 
     private int parseUPDATE(String[] args, int i) throws Exception {
@@ -76,11 +71,17 @@ public class ArgumentParser {
             throw new Exception("Not enough arguments for 'update' action");
         }
 
-        int id = Integer.parseInt(args[i + 1]);
-        DataBase.CredentialRecord data = new DataBase.CredentialRecord(
-                id, args[i + 2], args[i + 3], args[i + 4], null);
+        int id;
+        try {
+            id = Integer.parseInt(args[i + 1]);
+        } catch (Exception e) {
+            throw new Exception("Invalid input for id");    
+        }
+        
+        DataBase.CredentialData data = new DataBase.CredentialData(
+                id, args[i + 2], args[i + 3], args[i + 4]);
 
-        parsedArg = new ParsedArg<>(ActionHandler.ActionType.UPDATE, data);
+        parsedArg = new ParsedArg(ActionHandler.ActionType.UPDATE, data);
         return i + 4;
     }
 
@@ -89,8 +90,8 @@ public class ArgumentParser {
             throw new Exception("Not enough arguments for 'get-pass' action");
         }
 
-        DataBase.CredentialData data = new DataBase.CredentialData(args[i + 1], args[i + 2], null);
-        parsedArg = new ParsedArg<>(ActionHandler.ActionType.GETPASS, data);
+        DataBase.CredentialData data = new DataBase.CredentialData(0, args[i + 1], args[i + 2], null);
+        parsedArg = new ParsedArg(ActionHandler.ActionType.GETPASS, data);
         return i + 2;
     }
 
@@ -99,14 +100,20 @@ public class ArgumentParser {
             throw new Exception("Not enough arguments for 'delete' action");
         }
 
-        int data = Integer.parseInt(args[i + 1]);
+        DataBase.CredentialData data;
+        try {
+            int id = Integer.parseInt(args[i + 1]);
+            data = new DataBase.CredentialData(id, null, null, null);
+        } catch (Exception e) {
+            throw new Exception("Invalid input for id");    
+        }
 
-        parsedArg = new ParsedArg<>(ActionHandler.ActionType.DELETE, data);
+        parsedArg = new ParsedArg(ActionHandler.ActionType.DELETE, data);
         return i + 1;
     }
 
     private void parseNEWPASS() {
-        parsedArg = new ParsedArg<>(ActionHandler.ActionType.NEWPASS, null);
+        parsedArg = new ParsedArg(ActionHandler.ActionType.NEWPASS, null);
     }
 
 }

@@ -1,6 +1,6 @@
 package com.github.tmpstpdwn;
 
-import java.util.Scanner;
+import java.io.Console;
 import javax.crypto.SecretKey;
 
 public class ActionHandler {
@@ -12,7 +12,11 @@ public class ActionHandler {
     - Include uppercase and lowercase letters
     - Add numbers and special symbols
     - Avoid common words or patterns
-    """;
+
+    WARINING:
+
+    In case if the master password is lost, there will
+    be no way to decrypt the database!!!""";
 
     public enum ActionType {
         ADD,
@@ -23,13 +27,13 @@ public class ActionHandler {
         NEWPASS
     }
 
-    public static void handleActions(ArgumentParser.ParsedArg<?> parsedArg, DataBase db, SecretKey key) throws Exception {
+    public static void handleActions(ArgumentParser.ParsedArg parsedArg, DataBase db, SecretKey key) throws Exception {
         switch (parsedArg.action()) {
-            case ADD -> actionADD((DataBase.CredentialData) parsedArg.data(), db, key);
+            case ADD -> actionADD( parsedArg.data(), db, key);
             case LIST -> actionLIST(db, key);
-            case UPDATE -> actionUPDATE((DataBase.CredentialRecord) parsedArg.data(), db, key);
-            case GETPASS -> actionGETPASS((DataBase.CredentialData) parsedArg.data(), db, key);
-            case DELETE -> actionDELETE((Integer) parsedArg.data(), db, key);
+            case UPDATE -> actionUPDATE(parsedArg.data(), db, key);
+            case GETPASS -> actionGETPASS(parsedArg.data(), db, key);
+            case DELETE -> actionDELETE(parsedArg.data(), db);
             case NEWPASS -> actionNEWPASS(db, key);
         }
     }
@@ -39,31 +43,35 @@ public class ActionHandler {
     }
 
     private static void actionLIST(DataBase db, SecretKey key) throws Exception {
-        System.out.println(db.printCredentialTable(key));
+        System.out.println(db.getCredentialTable(key));
     }
 
-    private static void actionUPDATE(DataBase.CredentialRecord record, DataBase db, SecretKey key) throws Exception {
-        db.updateCredential(record, key);
+    private static void actionUPDATE(DataBase.CredentialData data, DataBase db, SecretKey key) throws Exception {
+        db.updateCredential(data, key);
     }
 
     private static void actionGETPASS(DataBase.CredentialData data, DataBase db, SecretKey key) throws Exception {
         System.out.println(db.getPassword(data, key));
     }
 
-    private static void actionDELETE(int id, DataBase db, SecretKey key) throws Exception {
-        db.deleteCredential(id, key);
+    private static void actionDELETE(DataBase.CredentialData data, DataBase db) throws Exception {
+        db.deleteCredential(data);
     }
 
     private static void actionNEWPASS(DataBase db, SecretKey oldKey) throws Exception {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println(tipsForGoodPassword);
-        System.out.print("Enter a new master password: ");
-        String master = scanner.nextLine();
+        System.out.println("\n" + tipsForGoodPassword + "\n");
 
-        String loginSalt = Vault.generateSalt();
-        String encryptionSalt = Vault.generateSalt();
+        Console console = System.console();
+        if (console == null) {
+            throw new Exception("No console available");
+        }
+        char[] passwordChars = console.readPassword("Enter a new master password: ");
+        String master = new String(passwordChars);
 
-        String hashedMaster = Vault.hashPassword(master, loginSalt);
+        byte[] loginSalt = Vault.generateBytes(Vault.BytesType.SALT_BYTES);
+        byte[] encryptionSalt = Vault.generateBytes(Vault.BytesType.SALT_BYTES);
+
+        byte[] masterKey = Vault.getKeyBytes(master, loginSalt);
         
         if (!db.metaTableExists()) {
             db.createTables();
@@ -72,7 +80,6 @@ public class ActionHandler {
             db.reEncryptDatabase(oldKey, newKey);
         }
 
-        db.setMetadata(new DataBase.Metadata(hashedMaster, loginSalt, encryptionSalt));            
-        System.out.println("\nNew master password set!");
+        db.setMetadata(new DataBase.Metadata(masterKey, loginSalt, encryptionSalt));            
     }
 }
