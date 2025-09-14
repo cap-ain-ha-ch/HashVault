@@ -10,7 +10,7 @@ HashVault is a secure password manager written in Java that stores encrypted cre
 - The fat jar can then be run with the java virtual machine (17+) by 
 
 ```
-java -jar HashVault.jar
+java -jar HashVault-1.0.jar
 ```
 
 ## Usage
