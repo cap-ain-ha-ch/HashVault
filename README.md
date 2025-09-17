@@ -5,7 +5,7 @@ HashVault is a secure password manager written in Java that stores encrypted cre
 ## Run
 
 - Requires Java 17 or higher.
-- You can build it with maven OR
+- This project is buildable with Apache Maven softwares.
 - Get the fat jar package that includes all dependancies from releases.
 - The fat jar can then be run with the java virtual machine (17+) by 
 
