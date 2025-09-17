@@ -6,7 +6,7 @@ public class ArgumentParser {
     private ParsedArg parsedArg = null;
 
     private static final String helpText = """
-    Usage: hashvault <action> <args>
+    Usage: HashVault <action> <args>
 
     <action>   | <Args>
     -------------------
@@ -14,8 +14,8 @@ public class ArgumentParser {
     --update   | id target username password
     --delete   | id
     --list     | <NO ARGS>
-    --get-pass | target username
-    --new-pass | <NO ARGS>
+    --getpass  | target username
+    --newpass  | <NO ARGS>
     """;
 
     public ParsedArg getParsedArg() {
