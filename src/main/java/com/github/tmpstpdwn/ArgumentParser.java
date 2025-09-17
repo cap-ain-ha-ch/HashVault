@@ -8,7 +8,7 @@ public class ArgumentParser {
     private static final String helpText = """
     Usage: HashVault <action> <args>
 
-    <action>   | <Args>
+    <action>   | <args>
     -------------------
     --add      | target username password
     --update   | id target username password
@@ -35,8 +35,8 @@ public class ArgumentParser {
                 case "--update" -> { i = parseUPDATE(args, i); i++; }
                 case "--delete" -> { i = parseDELETE(args, i); i++; }
                 case "--list" -> { parseLIST(); i++; }
-                case "--get-pass" -> { i = parseGETPASS(args, i); i++; }
-                case "--new-pass" -> { parseNEWPASS(); i++; } 
+                case "--getpass" -> { i = parseGETPASS(args, i); i++; }
+                case "--newpass" -> { parseNEWPASS(); i++; } 
                 case "--help" -> {
                     System.out.println(helpText);
                     System.exit(0);
@@ -87,7 +87,7 @@ public class ArgumentParser {
 
     private int parseGETPASS(String[] args, int i) throws Exception {
         if (args.length - i - 1 < 2) {
-            throw new Exception("Not enough arguments for 'get-pass' action");
+            throw new Exception("Not enough arguments for 'getpass' action");
         }
 
         DataBase.CredentialData data = new DataBase.CredentialData(0, args[i + 1], args[i + 2], null);
