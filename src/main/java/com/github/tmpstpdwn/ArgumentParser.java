@@ -1,7 +1,7 @@
 package com.github.tmpstpdwn;
 
 public class ArgumentParser {
-    public static record ParsedArg(ActionHandler.ActionType action, DataBase.CredentialData data) {}
+    public static record ParsedArg(ActionHandler.ActionType action, DataBase.CredentialData data) {}//Same function as a structure in C.
 
     private ParsedArg parsedArg = null;
 
@@ -25,13 +25,17 @@ public class ArgumentParser {
     public void parseArgs(String[] args) throws Exception {
         int i = 0;
         while (i < args.length) {
+            /*args.length returns the number of words given by the user as arguments. 
+            For example in the case of --add the arguments are targetwebsite username password so i would return 4.*/
 
-            if (parsedArg != null) {
+            if (parsedArg != null) {//Exclusively defined for multiple action acceptance from the user. For exmple, --add _ _ _ --update _ _ _
                 throw new Exception("Only one action is allowed per execution.");
             }
 
             switch (args[i]) {
-                case "--add" -> { i = parseADD(args, i); i++; }
+                /*This is a different type of case where break statements are not needed. 
+                The symbol '->' would run the code defined inside the curly brackets and would exit*/
+                case "--add" -> { i = parseADD(args, i); i++; }//The function parseADD is called and run first, then i is incremented
                 case "--update" -> { i = parseUPDATE(args, i); i++; }
                 case "--delete" -> { i = parseDELETE(args, i); i++; }
                 case "--list" -> { parseLIST(); i++; }
@@ -51,13 +55,13 @@ public class ArgumentParser {
     }
 
     private int parseADD(String[] args, int i) throws Exception {
-//i usagehere not understood
-        if (args.length - i - 1 < 3) {
+        //Usage of i here is to check if there are sufficient arguments for the action that are given by the user.
+        if (args.length - i - 1 < 3) {//i is 0 here, the reason why i is subtracted from args.length is for 'multiple action in single argument' use case.
             throw new Exception("Not enough arguments for 'add' action");
         }
 
         DataBase.CredentialData data = new DataBase.CredentialData(
-                0, args[i + 1], args[i + 2], args[i + 3]);
+                0, args[i + 1], args[i + 2], args[i + 3]);/*Values to be inserted into the credential database*/
 
         parsedArg = new ParsedArg(ActionHandler.ActionType.ADD, data);
         return i + 3;
