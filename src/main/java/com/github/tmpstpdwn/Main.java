@@ -9,8 +9,8 @@ public class Main {
     public static void main(String[] args) {
         try {
             argParser.parseArgs(args);// The argument from the user is passed to the parseArgs method inside the ArgumentParser class.
-            db.connect();
-            run(db);
+            db.connect();//Establishes connection to the database
+            run(db);//Calls the below function.
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage() + "!");
             System.exit(1);
@@ -21,7 +21,10 @@ public class Main {
 
     private static void run(DataBase db) throws Exception {
         if (!db.metaTableExists()) {
-            ArgumentParser.ParsedArg launchNEWPASS =
+            /*If metatable doesnt exist, 
+            it means that the user is running the program for the first time, 
+            and would run the program to set a new password as the master password*/
+            ArgumentParser.ParsedArg launchNEWPASS =//
             new ArgumentParser.ParsedArg(ActionHandler.ActionType.NEWPASS, null);
             ActionHandler.handleActions(launchNEWPASS, db, null);
         } else {

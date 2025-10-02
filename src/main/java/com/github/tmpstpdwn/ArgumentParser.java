@@ -63,7 +63,7 @@ public class ArgumentParser {
         DataBase.CredentialData data = new DataBase.CredentialData(
                 0, args[i + 1], args[i + 2], args[i + 3]);/*Values to be inserted into the credential database*/
 
-        parsedArg = new ParsedArg(ActionHandler.ActionType.ADD, data);
+        parsedArg = new ParsedArg(ActionHandler.ActionType.ADD, data);//The variable whose value is declared as null at the beginning of the program
         return i + 3;
     }
 
