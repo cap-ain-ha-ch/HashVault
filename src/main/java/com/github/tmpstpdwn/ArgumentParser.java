@@ -25,7 +25,7 @@ public class ArgumentParser {
     public void parseArgs(String[] args) throws Exception {
         int i = 0;
         while (i < args.length) {
-            /*args.length returns the number of words given by the user as arguments. 
+            /*args.length returns the number of words(Command-line arguments) given by the user as arguments. 
             For example in the case of --add the arguments are targetwebsite username password so i would return 4.*/
 
             if (parsedArg != null) {//Exclusively defined for multiple action acceptance from the user. For exmple, --add _ _ _ --update _ _ _

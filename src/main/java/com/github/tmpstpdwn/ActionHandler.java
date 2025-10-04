@@ -62,10 +62,17 @@ public class ActionHandler {
         System.out.println("\n" + tipsForGoodPassword + "\n");
 
         Console console = System.console();
+        /*There might be cases where a terminal doesnt support the console features, when such cases are 
+        encountered the below if statement would make sure the main program catches the exception and 
+        terminates the program succesfully. Ex: VScode doesnt support console features and would return null
+        for the above line of code, if that happens the if statement below ensures the error is properly handled
+        terminating the program succesfully.*/
         if (console == null) {
             throw new Exception("No console available");
         }
         char[] passwordChars = console.readPassword("Enter a new master password: ");
+        /*Here the typed password wouldnt be seen at the terminal, this is one of the features of console,
+        the console package is imported solely for the said purpose*/
         String master = new String(passwordChars);
 
         byte[] loginSalt = Vault.generateBytes(Vault.BytesType.SALT_BYTES);

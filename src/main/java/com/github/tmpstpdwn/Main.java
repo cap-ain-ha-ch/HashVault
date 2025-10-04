@@ -24,8 +24,9 @@ public class Main {
             /*If metatable doesnt exist, 
             it means that the user is running the program for the first time, 
             and would run the program to set a new password as the master password*/
-            ArgumentParser.ParsedArg launchNEWPASS =//
+            ArgumentParser.ParsedArg launchNEWPASS =
             new ArgumentParser.ParsedArg(ActionHandler.ActionType.NEWPASS, null);
+            /*The above line creates a new object referred as launchNEWPASS with a new record(structure) inside*/
             ActionHandler.handleActions(launchNEWPASS, db, null);
         } else {
             SecretKey AESKey = Authenticator.authenticate(db);
