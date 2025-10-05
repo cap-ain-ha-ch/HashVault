@@ -20,15 +20,26 @@ import com.github.freva.asciitable.HorizontalAlign;
 
 class DataBase {
 
+    // Records representing entries for metadata, credentialdata table.
+    // used to pass entry data to and from functions in a more compact way.
     public static record Metadata(byte[] masterKey, byte[] loginSalt, byte[] encryptionSalt) {}
     public static record CredentialData(int id, String target, String username, String password) {}
 
+    // Constructing path to the database file.
     final private Path dbDirPath = Paths.get(System.getProperty("user.home"), ".hashvault");
     final private Path dbFilePath = dbDirPath.resolve("vault.db");
 
+    // object representing sql lite database connection.
     private Connection conn;
 
+    /*
+    CONNECT
+    -------
+    -> Establishes connection to the database using constructed path.
+    -> If database file doesnt exist, it creates one and connects to it.
+    */
     public void connect() throws Exception {
+        // Creating directory which contains database file if it doesnt already exist.
         File dbDir = dbDirPath.toFile();
         if (!dbDir.exists()) {
             if (!dbDir.mkdirs()) {
@@ -40,6 +51,12 @@ class DataBase {
         conn = DriverManager.getConnection(url);
     }
 
+    /*
+    METATABLEEXISTS
+    ---------------
+    -> Returns true if metatable table already exists, otherwise false.
+    -> Absence of metatable signifies no master password has been set yet.
+    */
     public boolean metaTableExists() {
         String sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='meta_table';";
 
@@ -51,6 +68,13 @@ class DataBase {
         }
     }
 
+    /*
+    CREATE_TABLES
+    ------------
+    -> Creates both metatable and crendential table if it doesnt already exist.
+    -> This is used on user's first run prior to setting master password.
+    -> So that all the tables required for the program is set up.
+    */
     public void createTables() throws Exception {
         String metaTableSQL = """
             CREATE TABLE IF NOT EXISTS meta_table (
@@ -75,15 +99,25 @@ class DataBase {
         }
     }
 
+    /*
+    SET_METADATA
+    -----------
+    -> Accepts a record of type MetaData containing data to be set in the metadata table.
+    -> When used on an empty metatable, it inserts a new entry.
+    -> Otherwise it updates the already existing entry leading to only one entry at anytime in the table.
+    -> Metatable at anytime will only have one entry, which stores the current master_hash, login_salt and encryption_salt.
+    */
     public void setMetadata(Metadata metadata) throws Exception {
         String checkSql = "SELECT COUNT(*) FROM meta_table";
         try (
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(checkSql)
         ) {
+            // Checks whether the meta table is empty.
             rs.next();
             boolean isEmpty = rs.getInt(1) == 0;
 
+            // If meta table is empty, set sql for insertion other wise updation.
             String sql = isEmpty
                 ? "INSERT INTO meta_table (master_key, login_salt, encryption_salt) VALUES (?, ?, ?)"
                 : "UPDATE meta_table SET master_key = ?, login_salt = ?, encryption_salt = ?";
@@ -99,6 +133,11 @@ class DataBase {
         }
     }
 
+    /*
+    GETMETADATA
+    -----------
+    -> Returns the one and only entry of metatable as a record of type MetaData.
+    */
     public Metadata getMetadata() throws Exception {
         String sql = "SELECT master_key, login_salt, encryption_salt FROM meta_table LIMIT 1";
 
@@ -120,6 +159,14 @@ class DataBase {
         }
     }
 
+    /*
+    INSERTCREDENTIAL
+    ----------------
+    -> Accepts data to be inserted as a record of type CredentialData and a key to be used for encryption.
+    -> Combines the credential data in to a json string. i.e "{target: github, username: abc, password: xyz}"
+    -> Encrypts the json string using the provided key.
+    -> Inserts the encrypted data into the credential table.
+    */
     private void insertCredential(CredentialData credentialData, SecretKey key) throws Exception {
         String sql = "INSERT INTO credential_table (data) VALUES (?)";
 
@@ -140,11 +187,18 @@ class DataBase {
         }
     }
 
+    /*
+    INSERT_CREDENTIAL_UNIQUE
+    ----------------------
+    -> Insert a credential only if (target, username) combination doesnt already exist in the credential table.
+    -> Uses 'void insertCredential(CredentialData credentialData, SecretKey key)' for insertion.
+    */
     public void insertCredentialUnique(CredentialData credentialData, SecretKey key) throws Exception {
         List<CredentialData> credentials = getAllCredentials(key);
 
         for (CredentialData cred : credentials) {
 
+            // Checking for uniqueness.
             if (
             cred.target().equals(credentialData.target()) &&
             cred.username().equals(credentialData.username()))
@@ -156,6 +210,18 @@ class DataBase {
         insertCredential(credentialData, key);
     }
 
+    /*
+    UPDATE_CREDENTIAL
+    -----------------
+    -> Accepts id for updation along with data to be updated with as a record of type CredentialData.
+    -> Accepts key for decryption and encryption.
+    -> Fetch the entry to be updated with the given id and decrypt it with key.
+    -> The decrypted data is a json.
+    -> A new json is constructed with values from the given CredentialData record.
+    -> If the value is '_' then the new json uses previous value from the decrypted json.
+    -> Once the new json is fully constructed, it is encrypted with the given key.
+    -> This newly encrypted json is then used to update the entry from credential table corresponding to the given id. 
+    */
     public void updateCredential(CredentialData updatedData, SecretKey key) throws Exception {
         String selectSql = "SELECT data FROM credential_table WHERE id = ?";
         String updateSql = "UPDATE credential_table SET data = ? WHERE id = ?";
@@ -197,6 +263,13 @@ class DataBase {
         }
     }
 
+    /*
+    DELETE_CREDENTIAL
+    -----------------
+    -> Recieves id for entry to be deleted using a CredentialData record.
+    -> Deletes entry corresponding to the given id from credential table if it exists.
+    -> Otherwise throws an exception.
+    */
     public void deleteCredential(CredentialData credentialData) throws Exception {
         String sql = "DELETE FROM credential_table WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -209,6 +282,13 @@ class DataBase {
         }
     }
 
+    /*
+    GET_PASSWORD
+    ------------
+    -> Recieve (target, username) using a record of type CredentialData along with a key for decryption.
+    -> Return the password as string for the (target, username) combination if it exists in credential table.
+    -> Otherwise throw an exception.
+    */
     public String getPassword(CredentialData credentialData, SecretKey key) throws Exception {
         List<CredentialData> allCredentials = getAllCredentials(key);
 
@@ -231,6 +311,15 @@ class DataBase {
         );
     }
 
+    /*
+    REENCRYPT_DATABASE
+    ------------------
+    -> Recieves an oldkey with which the credential table is currently encrypted and a newkey with which the
+       credential table is to be rencrypted. 
+    -> First decrypt the whole credential table with oldkey.
+    -> Then use 'void reEncryptCredential(CredentialData credentialData, SecretKey newKey)' to re encrypt the
+       credential table one credential at a time with a loop
+    */
     public void reEncryptDatabase(SecretKey oldKey, SecretKey newKey) throws Exception {
         List<CredentialData> credentials = getAllCredentials(oldKey);
         for (CredentialData cred : credentials) {
@@ -238,6 +327,12 @@ class DataBase {
         }
     }
 
+    /*
+    GET_CREDENTIAL_TABLE
+    --------------------
+    -> Accepts a key to decrypt the credential table.
+    -> Return a String representing ascii table for the credential table.
+    */
     public String getCredentialTable(SecretKey key) throws Exception {
         List<CredentialData> credentials = getAllCredentials(key);
 
@@ -255,6 +350,11 @@ class DataBase {
         return table;
     }
 
+    /*
+    CLOSE
+    -----
+    -> Close connection to database.
+    */
     public void close() {
         if (conn != null) {
             try {
@@ -265,6 +365,13 @@ class DataBase {
         }
     }
 
+    /*
+    GET_ALL_CREDENTIALS
+    -------------------
+    -> Accepts a key for credential table decryption.
+    -> Constructs a List of decrpted credentials from credential table.
+    -> Returns the constructed list.
+    */
     private List<CredentialData> getAllCredentials(SecretKey key) throws Exception {
         List<CredentialData> credentials = new ArrayList<>();
         String sql = "SELECT * FROM credential_table";
@@ -291,6 +398,12 @@ class DataBase {
         return credentials;
     }
 
+    /*
+    RE_ENCRYPT_CREDENTIAL
+    -----------------------
+    -> Accepts data to be encrypted as a record of type CredentialData along with a new key for encryption.
+    -> The data is encrypted using the new key and correspoding credential table entry is updated using the id.  
+    */
     private void reEncryptCredential(CredentialData credentialData, SecretKey newKey) throws Exception {
         String sql = "UPDATE credential_table SET data = ? WHERE id = ?";
 
